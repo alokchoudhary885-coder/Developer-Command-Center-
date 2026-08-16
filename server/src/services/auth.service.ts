@@ -58,6 +58,75 @@ export class AuthService {
     return { user: safeUser, token };
   }
 
+  static async upsertGoogleUser(profile: {
+    googleId: string;
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+    accessToken?: string;
+  }) {
+    const { googleId, email, name, avatarUrl, accessToken } = profile;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if this is the first user in the system to grant ADMIN, otherwise DEVELOPER
+    const existingUsersCount = await prisma.user.count();
+    const defaultRole: Role = existingUsersCount === 0 ? Role.ADMIN : Role.DEVELOPER;
+
+    const encryptedToken = accessToken ? encryptToken(accessToken) : undefined;
+
+    // 1. Try to find user by googleId or email
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [{ googleId }, { email: normalizedEmail }],
+      },
+    });
+
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId,
+          name: user.name || name || 'Google User',
+          avatarUrl: user.avatarUrl || avatarUrl,
+          ...(encryptedToken && { encryptedToken }),
+        },
+      });
+    } else {
+      // Generate a guaranteed unique username
+      let baseUsername = normalizedEmail.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+      if (!baseUsername) baseUsername = `user_${googleId.slice(0, 6)}`;
+      let uniqueUsername = baseUsername;
+      let counter = 1;
+
+      while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
+        uniqueUsername = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+        counter++;
+        if (counter > 10) {
+          uniqueUsername = `${baseUsername}_${Date.now()}`;
+          break;
+        }
+      }
+
+      user = await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          username: uniqueUsername,
+          name: name || 'Google User',
+          avatarUrl,
+          googleId,
+          authProvider: 'GOOGLE',
+          role: defaultRole,
+          ...(encryptedToken && { encryptedToken }),
+        },
+      });
+    }
+
+    const token = this.generateToken(user);
+    const { encryptedToken: _hidden, passwordHash: _p, ...safeUser } = user as any;
+
+    return { user: safeUser, token };
+  }
+
   static setAuthCookie(res: Response, token: string) {
     res.cookie(AUTH_COOKIE_NAME, token, {
       httpOnly: true,

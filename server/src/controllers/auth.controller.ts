@@ -300,11 +300,10 @@ export class AuthController {
       });
 
       const googleProfile = userinfoRes.data;
-      const googleId = googleProfile.sub;
+      const googleId = String(googleProfile.sub);
       const email = googleProfile.email?.toLowerCase().trim();
       const name = googleProfile.name || googleProfile.given_name || 'Google User';
       const avatarUrl = googleProfile.picture;
-      const derivedUsername = email ? email.split('@')[0] : `google_user_${googleId.substring(0, 6)}`;
 
       if (!email) {
         return res.redirect(
@@ -314,50 +313,26 @@ export class AuthController {
         );
       }
 
-      // Account linking / find or create
-      let user = await prisma.user.findFirst({
-        where: {
-          OR: [{ googleId }, { email }],
-        },
+      const { user, token } = await AuthService.upsertGoogleUser({
+        googleId,
+        email,
+        name,
+        avatarUrl,
+        accessToken: access_token,
       });
 
-      if (user) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            googleId,
-            name: user.name || name,
-            avatarUrl: user.avatarUrl || avatarUrl,
-          },
-        });
-      } else {
-        const totalUsers = await prisma.user.count();
-        const defaultRole: Role = totalUsers === 0 ? Role.ADMIN : Role.DEVELOPER;
-
-        user = await prisma.user.create({
-          data: {
-            email,
-            username: derivedUsername,
-            name,
-            avatarUrl,
-            googleId,
-            authProvider: 'GOOGLE',
-            role: defaultRole,
-            encryptedToken: access_token ? encryptToken(access_token) : null,
-          },
-        });
-      }
-
-      const token = AuthService.generateToken(user);
       AuthService.setAuthCookie(res, token);
 
       return res.redirect(`${env.CLIENT_URL}/dashboard?token=${token}`);
-    } catch (error) {
-      console.error('Google OAuth callback error:', error);
+    } catch (error: any) {
+      console.error('Google OAuth callback error:', error?.response?.data || error?.message || error);
+      const errMsg =
+        error?.response?.data?.error_description ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Google authentication failed. Please try again.';
       return res.redirect(
-        `${env.CLIENT_URL}/login?error=${encodeURIComponent(
-          'Google authentication failed. Please try again.'
-        )}`
+        `${env.CLIENT_URL}/login?error=${encodeURIComponent(errMsg)}`
       );
     }
   }
