@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DEVELOPER
+  TECH_LEAD
+  ENGINEERING_MANAGER
+  ADMIN
+}
+
+enum AuthProvider {
+  GITHUB
+  GOOGLE
+  LOCAL
+}
+
+enum PRState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+enum PRReviewStatus {
+  APPROVED
+  CHANGES_REQUESTED
+  PENDING_REVIEW
+  DRAFT
+}
+
+enum IssueState {
+  OPEN
+  CLOSED
+}
+
+enum DeploymentStatus {
+  PENDING
+  QUEUED
+  IN_PROGRESS
+  SUCCESS
+  FAILURE
+  CANCELLED
+}
+
+enum ReviewVerdict {
+  APPROVED
+  CHANGES_REQUESTED
+  COMMENT
+}
+
+model User {
+  id             String        @id @default(uuid())
+  githubId       String?       @unique
+  googleId       String?       @unique
+  username       String        @unique
+  name           String?
+  email          String?       @unique
+  passwordHash   String?
+  avatarUrl      String?
+  encryptedToken String?
+  authProvider   AuthProvider  @default(GITHUB)
+  role           Role          @default(DEVELOPER)
+  repositories   Repository[]
+  pullRequests   PullRequest[]
+  issues         Issue[]
+  deployments    Deployment[]
+  activities     ActivityLog[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([email])
+  @@map("users")
+}
+
+model Repository {
+  id              String        @id @default(uuid())
+  githubId        String        @unique
+  name            String
+  fullName        String        @unique
+  owner           String
+  description     String?
+  isPrivate       Boolean       @default(false)
+  defaultBranch   String        @default("main")
+  htmlUrl         String
+  language        String?
+  starsCount      Int           @default(0)
+  forksCount      Int           @default(0)
+  openIssuesCount Int           @default(0)
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pullRequests    PullRequest[]
+  issues          Issue[]
+  commits         Commit[]
+  deployments     Deployment[]
+  activities      ActivityLog[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("repositories")
+}
+
+model PullRequest {
+  id           String         @id @default(uuid())
+  githubId     String         @unique
+  number       Int
+  title        String
+  description  String?
+  url          String
+  state        PRState        @default(OPEN)
+  reviewStatus PRReviewStatus @default(PENDING_REVIEW)
+  repositoryId String
+  authorId     String?
+  repository   Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  author       User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reviews      PrReview[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  closedAt     DateTime?
+  mergedAt     DateTime?
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId])
+  @@index([authorId])
+  @@index([state])
+  @@map("pull_requests")
+}
+
+model PrReview {
+  id               String        @id @default(uuid())
+  pullRequestId    String
+  pullRequest      PullRequest   @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  score            Int           @default(85)
+  verdict          ReviewVerdict @default(COMMENT)
+  summary          String
+  securityAlerts   Json?
+  performanceNotes Json?
+  codeSmells       Json?
+  rawDiff          String?
+  createdAt        DateTime      @default(now())
+
+  @@index([pullRequestId])
+  @@map("pr_reviews")
+}
+
+model Issue {
+  id           String     @id @default(uuid())
+  githubId     String     @unique
+  number       Int
+  title        String
+  description  String?
+  url          String
+  state        IssueState @default(OPEN)
+  repositoryId String
+  assigneeId   String?
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  assignee     User?      @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  closedAt     DateTime?
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId])
+  @@index([assigneeId])
+  @@index([state])
+  @@map("issues")
+}
+
+model Commit {
+  id           String     @id @default(uuid())
+  sha          String
+  message      String
+  author       String?
+  authorAvatar String?
+  url          String?
+  committedAt  DateTime?
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([repositoryId, sha])
+  @@index([repositoryId])
+  @@index([committedAt])
+  @@map("commits")
+}
+
+model Deployment {
+  id            String           @id @default(uuid())
+  externalId    String?          @unique
+  environment   String           @default("Production")
+  status        DeploymentStatus @default(PENDING)
+  commitSha     String?
+  url           String?
+  repositoryId  String
+  triggeredById String?
+  repository    Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  triggeredBy   User?            @relation(fields: [triggeredById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([repositoryId])
+  @@index([status])
+  @@index([environment])
+  @@map("deployments")
+}
+
+model ActivityLog {
+  id           String      @id @default(uuid())
+  action       String
+  entityType   String
+  entityId     String?
+  metadata     Json?
+  userId       String?
+  repositoryId String?
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  repository   Repository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  @@index([userId])
+  @@index([repositoryId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model WebhookDelivery {
+  id          String   @id @default(uuid())
+  deliveryId  String   @unique
+  event       String
+  status      String   @default("PROCESSED")
+  processedAt DateTime @default(now())
+
+  @@index([deliveryId])
+  @@map("webhook_deliveries")
+}

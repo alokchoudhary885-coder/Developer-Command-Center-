@@ -1,0 +1,15 @@
+{
+  "name": "developer-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Developer Command Center Monorepo Root",
+  "scripts": {
+    "dev": "npm --prefix server run dev",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:server": "npm --prefix server run build",
+    "build:client": "npm --prefix client run build",
+    "build": "npm run build:server && npm run build:client",
+    "start": "npm --prefix server start"
+  }
+}
