@@ -32,6 +32,28 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+function getGoogleCallbackUrl(req: Request): string {
+  if (env.GOOGLE_CALLBACK_URL && !env.GOOGLE_CALLBACK_URL.includes('localhost')) {
+    return env.GOOGLE_CALLBACK_URL;
+  }
+  const host = req.get('host');
+  if (host && host.includes('onrender.com')) {
+    return `https://${host}/api/auth/google/callback`;
+  }
+  return env.GOOGLE_CALLBACK_URL || 'https://developer-command-center-api.onrender.com/api/auth/google/callback';
+}
+
+function getGitHubCallbackUrl(req: Request): string {
+  if (env.GITHUB_CALLBACK_URL && !env.GITHUB_CALLBACK_URL.includes('localhost')) {
+    return env.GITHUB_CALLBACK_URL;
+  }
+  const host = req.get('host');
+  if (host && host.includes('onrender.com')) {
+    return `https://${host}/api/auth/github/callback`;
+  }
+  return env.GITHUB_CALLBACK_URL || 'https://developer-command-center-api.onrender.com/api/auth/github/callback';
+}
+
 export class AuthController {
   /**
    * 1. Register with Email & Password (bcrypt cost factor 12)
@@ -199,7 +221,7 @@ export class AuthController {
   /**
    * 3. Initiate Google OAuth Flow with CSRF State Protection
    */
-  static initiateGoogleAuth(_req: Request, res: Response) {
+  static initiateGoogleAuth(req: Request, res: Response) {
     if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || env.GOOGLE_CLIENT_ID.startsWith('mock_')) {
       return res.redirect(
         `${env.CLIENT_URL}/login?error=${encodeURIComponent(
@@ -208,13 +230,14 @@ export class AuthController {
       );
     }
 
+    const callbackUrl = getGoogleCallbackUrl(req);
     const state = crypto.randomBytes(24).toString('hex');
     AuthService.setStateCookie(res, state);
 
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${
       env.GOOGLE_CLIENT_ID
     }&redirect_uri=${encodeURIComponent(
-      env.GOOGLE_CALLBACK_URL
+      callbackUrl
     )}&response_type=code&scope=${encodeURIComponent(
       'openid email profile'
     )}&state=${state}&access_type=offline&prompt=consent`;
@@ -258,13 +281,15 @@ export class AuthController {
         );
       }
 
+      const callbackUrl = getGoogleCallbackUrl(req);
+
       // Exchange code for tokens with Google
       const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
         client_id: env.GOOGLE_CLIENT_ID,
         client_secret: env.GOOGLE_CLIENT_SECRET,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: env.GOOGLE_CALLBACK_URL,
+        redirect_uri: callbackUrl,
       });
 
       const { access_token } = tokenRes.data;
@@ -340,7 +365,7 @@ export class AuthController {
   /**
    * 5. Initiate GitHub OAuth Flow with CSRF State Protection
    */
-  static initiateGitHubAuth(_req: Request, res: Response) {
+  static initiateGitHubAuth(req: Request, res: Response) {
     if (
       !env.GITHUB_CLIENT_ID ||
       !env.GITHUB_CLIENT_SECRET ||
@@ -354,10 +379,11 @@ export class AuthController {
       );
     }
 
+    const callbackUrl = getGitHubCallbackUrl(req);
     const state = crypto.randomBytes(24).toString('hex');
     AuthService.setStateCookie(res, state);
 
-    const authUrl = GitHubService.getAuthorizationUrl(state);
+    const authUrl = GitHubService.getAuthorizationUrl(state, callbackUrl);
     res.redirect(authUrl);
   }
 
@@ -397,7 +423,8 @@ export class AuthController {
         );
       }
 
-      const accessToken = await GitHubService.exchangeCodeForToken(code);
+      const callbackUrl = getGitHubCallbackUrl(req);
+      const accessToken = await GitHubService.exchangeCodeForToken(code, callbackUrl);
       const profile = await GitHubService.fetchUserProfile(accessToken);
 
       // Role Determination: Grant ADMIN if in whitelist or first user, else DEVELOPER

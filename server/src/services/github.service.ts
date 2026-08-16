@@ -83,9 +83,9 @@ export class GitHubService {
   private static GITHUB_OAUTH_URL = 'https://github.com/login/oauth/authorize';
   private static GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 
-  static getAuthorizationUrl(state: string): string {
+  static getAuthorizationUrl(state: string, customRedirectUri?: string): string {
     const clientId = env.GITHUB_CLIENT_ID || 'mock_client_id';
-    const redirectUri = env.GITHUB_CALLBACK_URL;
+    const redirectUri = customRedirectUri || env.GITHUB_CALLBACK_URL;
     const scope = 'read:user user:email repo';
 
     const params = new URLSearchParams({
@@ -98,7 +98,7 @@ export class GitHubService {
     return `${this.GITHUB_OAUTH_URL}?${params.toString()}`;
   }
 
-  static async exchangeCodeForToken(code: string): Promise<string> {
+  static async exchangeCodeForToken(code: string, customRedirectUri?: string): Promise<string> {
     if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) {
       throw new Error('GitHub OAuth credentials not configured in .env');
     }
@@ -109,7 +109,7 @@ export class GitHubService {
         client_id: env.GITHUB_CLIENT_ID,
         client_secret: env.GITHUB_CLIENT_SECRET,
         code,
-        redirect_uri: env.GITHUB_CALLBACK_URL,
+        redirect_uri: customRedirectUri || env.GITHUB_CALLBACK_URL,
       },
       {
         headers: {
