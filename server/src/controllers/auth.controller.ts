@@ -400,21 +400,17 @@ export class AuthController {
       const accessToken = await GitHubService.exchangeCodeForToken(code);
       const profile = await GitHubService.fetchUserProfile(accessToken);
 
-      // Strict Admin Access Control: Enforce GitHub Whitelist
+      // Role Determination: Grant ADMIN if in whitelist or first user, else DEVELOPER
+      let roleOverride: Role | undefined;
       if (env.ALLOWED_GITHUB_USERS) {
         const allowedList = env.ALLOWED_GITHUB_USERS.split(',').map((u) => u.trim().toLowerCase());
         const currentUserLogin = profile.login.toLowerCase().trim();
-        if (!allowedList.includes(currentUserLogin)) {
-          console.warn(`🚨 Unauthorized GitHub login attempt blocked: @${profile.login}`);
-          return res.redirect(
-            `${env.CLIENT_URL}/login?error=${encodeURIComponent(
-              `Access Denied: Your GitHub account (@${profile.login}) is not in the authorized Admin whitelist.`
-            )}`
-          );
+        if (allowedList.includes(currentUserLogin)) {
+          roleOverride = Role.ADMIN;
         }
       }
 
-      const { user, token } = await AuthService.upsertGitHubUser(profile, accessToken);
+      const { user, token } = await AuthService.upsertGitHubUser(profile, accessToken, roleOverride);
 
       AuthService.setAuthCookie(res, token);
 

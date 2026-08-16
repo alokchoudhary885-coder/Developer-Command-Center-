@@ -17,12 +17,12 @@ export class AuthService {
     });
   }
 
-  static async upsertGitHubUser(profile: GitHubUserProfile, accessToken?: string) {
+  static async upsertGitHubUser(profile: GitHubUserProfile, accessToken?: string, overrideRole?: Role) {
     const githubIdStr = profile.id.toString();
 
     // Check if this is the first user in the system to grant ADMIN, otherwise DEVELOPER
     const existingUsersCount = await prisma.user.count();
-    const defaultRole: Role = existingUsersCount === 0 ? Role.ADMIN : Role.DEVELOPER;
+    const defaultRole: Role = overrideRole || (existingUsersCount === 0 ? Role.ADMIN : Role.DEVELOPER);
 
     // Encrypt token securely using AES-256-GCM before saving to PostgreSQL
     const encryptedToken = accessToken ? encryptToken(accessToken) : undefined;
@@ -36,6 +36,7 @@ export class AuthService {
         name: profile.name || profile.login,
         email: profile.email,
         avatarUrl: profile.avatar_url,
+        ...(overrideRole && { role: overrideRole }),
         ...(encryptedToken && { encryptedToken }),
       },
       create: {
