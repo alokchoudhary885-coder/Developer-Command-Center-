@@ -9,12 +9,22 @@ const router = Router();
 router.post('/register', authRateLimiter, AuthController.register);
 router.post('/login', authRateLimiter, AuthController.loginWithPassword);
 
-// 2. Google OAuth 2.0 (Gmail)
-router.get('/google', AuthController.initiateGoogleAuth);
+// 2. Google OAuth 2.0 (Gmail) - Flexible Dual-Route Callback Support
+router.get('/google', (req, res, next) => {
+  if (req.query.code || req.query.error) {
+    return AuthController.handleGoogleCallback(req, res, next);
+  }
+  return AuthController.initiateGoogleAuth(req, res);
+});
 router.get('/google/callback', AuthController.handleGoogleCallback);
 
-// 3. GitHub OAuth 2.0
-router.get('/github', AuthController.initiateGitHubAuth);
+// 3. GitHub OAuth 2.0 - Flexible Dual-Route Callback Support
+router.get('/github', (req, res, next) => {
+  if (req.query.code || req.query.error) {
+    return AuthController.handleGitHubCallback(req, res, next);
+  }
+  return AuthController.initiateGitHubAuth(req, res);
+});
 router.get('/github/callback', AuthController.handleGitHubCallback);
 
 // 4. Instant Dev Demo Login
