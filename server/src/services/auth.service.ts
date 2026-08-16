@@ -61,7 +61,7 @@ export class AuthService {
     res.cookie(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -71,7 +71,7 @@ export class AuthService {
     res.cookie(STATE_COOKIE_NAME, state, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 10 * 60 * 1000, // 10 minutes
       path: '/',
     });
@@ -81,7 +81,7 @@ export class AuthService {
     res.clearCookie(AUTH_COOKIE_NAME, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       path: '/',
     });
   }
@@ -90,7 +90,7 @@ export class AuthService {
     res.clearCookie(STATE_COOKIE_NAME, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       path: '/',
     });
   }

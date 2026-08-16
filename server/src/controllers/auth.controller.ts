@@ -434,7 +434,7 @@ export class AuthController {
    */
   static async devLogin(req: Request, res: Response, next: NextFunction) {
     try {
-      if (!env.DEMO_LOGIN_ENABLED || env.NODE_ENV === 'production') {
+      if (!env.DEMO_LOGIN_ENABLED) {
         return res.status(403).json({
           success: false,
           error: {
