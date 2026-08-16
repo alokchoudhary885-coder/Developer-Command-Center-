@@ -45,12 +45,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshSession();
   }, [refreshSession]);
 
+  const backendUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '');
+
   const loginWithGitHub = () => {
-    window.location.href = 'http://localhost:5000/api/auth/github';
+    window.location.href = `${backendUrl}/api/auth/github`;
   };
 
   const loginWithGoogle = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const loginWithPassword = async (email: string, password: string) => {
