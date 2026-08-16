@@ -113,7 +113,7 @@ export class AuthController {
       res.status(201).json({
         success: true,
         message: 'Account created successfully',
-        data: { user: safeUser },
+        data: { user: safeUser, token },
       });
     } catch (error) {
       next(error);
@@ -189,7 +189,7 @@ export class AuthController {
       res.status(200).json({
         success: true,
         message: 'Logged in successfully',
-        data: { user: safeUser },
+        data: { user: safeUser, token },
       });
     } catch (error) {
       next(error);
@@ -326,7 +326,7 @@ export class AuthController {
       const token = AuthService.generateToken(user);
       AuthService.setAuthCookie(res, token);
 
-      return res.redirect(`${env.CLIENT_URL}/dashboard`);
+      return res.redirect(`${env.CLIENT_URL}/dashboard?token=${token}`);
     } catch (error) {
       console.error('Google OAuth callback error:', error);
       return res.redirect(
@@ -414,7 +414,7 @@ export class AuthController {
 
       AuthService.setAuthCookie(res, token);
 
-      return res.redirect(`${env.CLIENT_URL}/dashboard`);
+      return res.redirect(`${env.CLIENT_URL}/dashboard?token=${token}`);
     } catch (error) {
       console.error('GitHub OAuth callback error:', error);
       return res.redirect(
@@ -471,7 +471,7 @@ export class AuthController {
       return res.status(200).json({
         success: true,
         message: 'Logged in successfully via Demo Access',
-        data: { user: safeUser },
+        data: { user: safeUser, token },
       });
     } catch (error) {
       next(error);

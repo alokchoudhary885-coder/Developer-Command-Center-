@@ -28,6 +28,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshSession = useCallback(async () => {
     try {
+      // Check if token was returned in URL params (from OAuth redirect)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      if (urlToken) {
+        localStorage.setItem('dcc_token', urlToken);
+        // Clean URL cleanly without triggering page reload
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+
       const response = await api.get('/auth/me');
       if (response.data?.success && response.data?.data?.user) {
         setUser(response.data.data.user);
@@ -58,6 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithPassword = async (email: string, password: string) => {
     const res = await api.post('/auth/login', { email, password });
     if (res.data?.success && res.data?.data?.user) {
+      if (res.data.data.token) {
+        localStorage.setItem('dcc_token', res.data.data.token);
+      }
       setUser(res.data.data.user);
     }
   };
@@ -75,6 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       confirmPassword,
     });
     if (res.data?.success && res.data?.data?.user) {
+      if (res.data.data.token) {
+        localStorage.setItem('dcc_token', res.data.data.token);
+      }
       setUser(res.data.data.user);
     }
   };
@@ -84,6 +100,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const res = await api.post('/auth/dev-login', { username });
       if (res.data?.success && res.data?.data?.user) {
+        if (res.data.data.token) {
+          localStorage.setItem('dcc_token', res.data.data.token);
+        }
         setUser(res.data.data.user);
       }
     } catch (err) {
@@ -100,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      localStorage.removeItem('dcc_token');
       setUser(null);
     }
   };
